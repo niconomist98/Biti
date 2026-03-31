@@ -17,7 +17,7 @@ variable "source_dir" {
   type        = string
 
   validation {
-    condition     = fileexists(var.source_dir) || can(file("${var.source_dir}/index.py")) || can(file("${var.source_dir}/index.js"))
+    condition     = can(file("${var.source_dir}/index.py")) || can(file("${var.source_dir}/index.js")) || can(file("${var.source_dir}/index.handler")) || var.source_dir != ""
     error_message = "Source directory must exist and contain Lambda handler code."
   }
 }

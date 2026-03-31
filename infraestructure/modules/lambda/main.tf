@@ -81,12 +81,7 @@ resource "aws_lambda_function" "function" {
   }
 
   # Layers for shared code/dependencies
-  dynamic "layers" {
-    for_each = var.layers != null ? var.layers : []
-    content {
-      arn = layers.value
-    }
-  }
+  layers = var.layers
 
   # Reserved concurrent executions
   reserved_concurrent_executions = var.reserved_concurrent_executions
@@ -103,10 +98,9 @@ resource "aws_lambda_alias" "live" {
   count             = var.enable_alias ? 1 : 0
   name              = var.alias_name
   description       = "Live alias for ${var.function_name}"
-  lambda_function_name = aws_lambda_function.function.function_name
+  function_name = aws_lambda_function.function.function_name
   function_version  = aws_lambda_function.function.version
 
-  tags = var.tags
 }
 
 # CloudWatch Log Group for Lambda
@@ -196,7 +190,6 @@ resource "aws_cloudwatch_event_target" "lambda_schedule_target" {
   rule        = aws_cloudwatch_event_rule.lambda_schedule[0].name
   target_id   = "${var.function_name}-target"
   arn         = aws_lambda_function.function.arn
-  handler     = var.handler
   role_arn    = aws_iam_role.eventbridge_invoke.arn
 
   input = var.schedule_input != null ? var.schedule_input : jsonencode({})
@@ -311,12 +304,12 @@ resource "aws_iam_role_policy_attachment" "lambda_xray_write_access" {
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
-# Enable Lambda insights
-resource "aws_lambda_layer_version" "insights" {
-  count                  = var.enable_insights ? 1 : 0
-  filename               = "${path.module}/lambda-insights-layer.zip"
-  layer_name             = "${var.function_name}-insights"
-  compatible_runtimes    = [var.runtime]
-  source_code_hash       = filebase64sha256("${path.module}/lambda-insights-layer.zip")
-  skip_destroy           = true
-}
+# Enable Lambda insights (requires lambda-insights-layer.zip in module directory)
+# resource "aws_lambda_layer_version" "insights" {
+#   count               = var.enable_insights ? 1 : 0
+#   filename            = "${path.module}/lambda-insights-layer.zip"
+#   layer_name          = "${var.function_name}-insights"
+#   compatible_runtimes = [var.runtime]
+#   source_code_hash    = filebase64sha256("${path.module}/lambda-insights-layer.zip")
+#   skip_destroy        = true
+# }

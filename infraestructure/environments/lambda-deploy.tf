@@ -1,10 +1,16 @@
+variable "environment" {
+  description = "Deployment environment"
+  type        = string
+  default     = "dev"
+}
+
 # Lambda Function Deployment
 
 module "my_lambda" {
   source = "../modules/lambda"
 
   function_name = "biti-hello-world"
-  source_dir    = "${path.module}/src/lambda"
+  source_dir    = "${path.module}/../../src/lambda"
   runtime       = "python3.11"
   handler       = "index.handler"
   timeout       = 30

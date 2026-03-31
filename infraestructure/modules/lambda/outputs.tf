@@ -29,7 +29,7 @@ output "function_last_modified" {
 
 output "function_code_size" {
   description = "Size of the Lambda function code in bytes"
-  value       = aws_lambda_function.function.code_size
+  value       = aws_lambda_function.function.source_code_size
 }
 
 output "role_arn" {
