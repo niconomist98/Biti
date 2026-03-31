@@ -1,0 +1,213 @@
+# Example terraform.tfvars for SageMaker Model Deployment
+# Copy and modify this file for your specific model deployment
+
+# ============================================================
+# REQUIRED VARIABLES - Must be configured for your deployment
+# ============================================================
+
+# Project identifier (used for naming and tagging resources)
+# Example: "biti", "crypto-forecast", "price-predictor"
+# project_name = "biti"
+
+# Environment where the model will be deployed
+# Options: "dev", "staging", "prod"
+# environment = "prod"
+
+# SageMaker model name (descriptive name for your model)
+# Example: "btc-price-predictor", "eth-classifier", "crypto-forecaster"
+# model_name = "btc-price-predictor"
+
+# SageMaker endpoint name (the endpoint clients will call)
+# Example: "btc-predictor-endpoint", "eth-classifier-api"
+# endpoint_name = "btc-predictor-endpoint"
+
+# S3 URI of your model artifact (the packaged model file)
+# Your model must be packaged as model.tar.gz and uploaded to S3
+# Format: s3://bucket-name/path/to/model.tar.gz
+# Example: "s3://my-ml-models/models/btc-predictor/v1.0/model.tar.gz"
+# model_artifact_s3_uri = "s3://my-bucket/models/my-model/model.tar.gz"
+
+# Container image URI for the model framework
+# Use SageMaker built-in images or your custom ECR image
+# PyTorch: "382416733822.dkr.ecr.us-east-1.amazonaws.com/sagemaker-pytorch:2.1-cpu-py310"
+# TensorFlow: "382416733822.dkr.ecr.us-east-1.amazonaws.com/sagemaker-tensorflow:2.13-cpu-py311"
+# XGBoost: "246618743249.dkr.ecr.us-east-1.amazonaws.com/sagemaker-xgboost:1.7-1-cpu-py3"
+# Scikit-Learn: "246618743249.dkr.ecr.us-east-1.amazonaws.com/sagemaker-scikit-learn:1.3-1-cpu-py3"
+# model_container_image_uri = "382416733822.dkr.ecr.us-east-1.amazonaws.com/sagemaker-pytorch:2.1-cpu-py310"
+
+# ============================================================
+# OPTIONAL: AWS Configuration
+# ============================================================
+
+# AWS region where resources will be deployed
+# Default: "us-east-1"
+# Options: "us-east-1", "us-west-2", "eu-west-1", etc.
+# aws_region = "us-east-1"
+
+# ============================================================
+# OPTIONAL: Instance Configuration
+# ============================================================
+
+# Instance type for the SageMaker endpoint
+# Default: "ml.t3.medium" (suitable for low-traffic models)
+#
+# CPU Options (cost-effective for CPU-based inference):
+#   - ml.t3.medium - 0.0416 USD/hour - small models, < 100 req/min
+#   - ml.t3.large - 0.0832 USD/hour - medium models, < 500 req/min
+#   - ml.t3.xlarge - 0.1664 USD/hour - larger models, < 1000 req/min
+#   - ml.c5.large - 0.085 USD/hour - compute-optimized
+#   - ml.c5.2xlarge - 0.34 USD/hour - compute-optimized, high performance
+#
+# GPU Options (for GPU-accelerated inference):
+#   - ml.g4dn.xlarge - 0.526 USD/hour - 1x NVIDIA T4 GPU (16GB)
+#   - ml.g4dn.2xlarge - 0.752 USD/hour - 1x NVIDIA T4 GPU
+#   - ml.p3.2xlarge - 3.06 USD/hour - 1x NVIDIA V100 GPU (16GB)
+#   - ml.p3.8xlarge - 12.24 USD/hour - 4x NVIDIA V100 GPU
+#
+# instance_type = "ml.t3.medium"
+
+# Number of instances to launch initially
+# Default: 1
+# Can be scaled dynamically with autoscaling_config
+# initial_instance_count = 1
+
+# ============================================================
+# OPTIONAL: Framework Information
+# ============================================================
+
+# ML framework used for the model
+# Default: "pytorch"
+# Options: "pytorch", "tensorflow", "sklearn", "xgboost", "mxnet"
+# framework = "pytorch"
+
+# Framework version
+# Default: "1.12" (for PyTorch)
+# Examples: "2.1" (PyTorch), "2.13" (TensorFlow), "1.7" (XGBoost), "1.3" (Scikit-Learn)
+# framework_version = "2.1"
+
+# Python version
+# Default: "py38"
+# Options: "py38", "py39", "py310", "py311"
+# py_version = "py310"
+
+# ============================================================
+# OPTIONAL: Auto-Scaling Configuration
+# ============================================================
+
+# Enable auto-scaling to dynamically adjust instance count based on load
+# Uncomment the entire block to enable
+#
+# autoscaling_config = {
+#   min_capacity               = 1        # Minimum instances (scale down to 1)
+#   max_capacity               = 10       # Maximum instances (scale up to 10)
+#   target_value               = 70.0     # Target 70% of SageMakerVariantInvocationsPerInstance
+#   scale_in_cooldown_seconds  = 300      # Wait 5 minutes before scaling down
+#   scale_out_cooldown_seconds = 60       # Wait 1 minute before scaling out
+# }
+
+# ============================================================
+# OPTIONAL: Monitoring & Data Capture
+# ============================================================
+
+# Enable CloudWatch monitoring with automatic alarms
+# Default: true
+# enable_monitoring = true
+
+# Enable data capture for monitoring model drift and performance
+# Captures all inputs and outputs sent to the model
+# Default: false
+# enable_data_capture = true
+
+# S3 location for captured data
+# Only required if enable_data_capture = true
+# Format: s3://bucket-name/prefix/
+# data_capture_s3_prefix = "s3://my-bucket/data-capture/"
+
+# Enable X-Ray tracing for debugging and performance analysis
+# Default: false
+# enable_xray_tracing = true
+
+# ============================================================
+# OPTIONAL: VPC Configuration (Network Isolation)
+# ============================================================
+
+# Deploy the endpoint in a VPC for network isolation
+# Uncomment to enable. Replace subnet and security group IDs with your values
+#
+# vpc_config = {
+#   # Private subnets where the endpoint will run
+#   # Subnets must have outbound internet access (NAT Gateway) for S3 access
+#   subnet_ids = [
+#     "subnet-12345678",
+#     "subnet-87654321"
+#   ]
+#
+#   # Security group for the endpoint
+#   # Must allow outbound HTTPS (443) to S3
+#   security_group_ids = [
+#     "sg-sagemaker-12345"
+#   ]
+# }
+
+# ============================================================
+# OPTIONAL: Environment Variables for Model Container
+# ============================================================
+
+# Pass environment variables to the model container
+# Uncomment and add variables your model needs
+#
+# model_environment_variables = {
+#   MODEL_VERSION  = "1.0.0"
+#   INFERENCE_MODE = "production"
+#   LOG_LEVEL      = "INFO"
+#   # Add any custom variables your model needs
+# }
+
+# ============================================================
+# OPTIONAL: Custom Model Data URL
+# ============================================================
+
+# Use a different S3 location for model data (not the artifact)
+# Leave as null (default) to use model_artifact_s3_uri
+# custom_model_data_url = null
+
+# ============================================================
+# OPTIONAL: Memory Configuration
+# ============================================================
+
+# Amount of memory (in MB) allocated to the model container
+# Default: 512 MB
+# Range: 128 - 30720 MB (128 MB to 30 GB)
+# Increase if model is large or encounters memory errors
+# model_memory_size_in_mb = 512
+
+# ============================================================
+# OPTIONAL: Resource Tags
+# ============================================================
+
+# Tags applied to all created resources for organization and cost tracking
+# Default: empty
+# tags = {
+#   Project     = "Biti"
+#   Environment = "Production"
+#   Team        = "ML-Platform"
+#   CostCenter  = "Engineering"
+#   Owner       = "DataScience"
+#   CreatedBy   = "Terraform"
+# }
+
+# ============================================================
+# USAGE INSTRUCTIONS
+# ============================================================
+# 
+# 1. Copy this file: cp examples/terraform.tfvars environments/my-model.tfvars
+# 2. Edit the REQUIRED VARIABLES section with your specific values
+# 3. Adjust OPTIONAL variables as needed for your use case
+# 4. Deploy: terraform apply -var-file=environments/my-model.tfvars
+#
+# To use specific values for dev/staging/prod, create separate .tfvars files:
+#   - environments/pytorch-model-dev.tfvars
+#   - environments/pytorch-model-staging.tfvars
+#   - environments/pytorch-model-prod.tfvars
+#
+# For more information, see DEPLOYMENT_GUIDE.md
