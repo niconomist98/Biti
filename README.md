@@ -1,2 +1,2 @@
 # Biti
-Biti, the PAAS crypto investment network
+Biti, the  Next Generation AI/ML powered PAAS crypto forecasting network for individuals
