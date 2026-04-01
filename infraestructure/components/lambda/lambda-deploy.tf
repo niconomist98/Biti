@@ -7,10 +7,10 @@ variable "environment" {
 # Lambda Function Deployment
 
 module "my_lambda" {
-  source = "../modules/lambda"
+  source = "../../modules/lambda"
 
   function_name = "biti-hello-world"
-  source_dir    = "${path.module}/../../src/lambda"
+  source_dir    = "$../{path.module}/../../src/lambda"
   runtime       = "python3.11"
   handler       = "index.handler"
   timeout       = 30

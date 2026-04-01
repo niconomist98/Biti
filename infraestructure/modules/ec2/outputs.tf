@@ -109,7 +109,7 @@ output "launch_template_id" {
 
 output "launch_template_latest_version" {
   description = "Launch template latest version"
-  value       = var.enable_auto_scaling ? aws_launch_template.ec2[0].latest_version_number : null
+  value       = var.enable_auto_scaling ? aws_launch_template.ec2[0].latest_version : null
 }
 
 output "ami_id" {

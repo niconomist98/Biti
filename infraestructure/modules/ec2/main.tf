@@ -144,19 +144,22 @@ resource "aws_instance" "ec2" {
   ebs_optimized = var.ebs_optimized
 
   # Advanced options
-  user_data              = var.user_data
-  cpu_credits            = var.cpu_credits
-  hibernation_options {
-    configured = var.enable_hibernation
+  user_data = var.user_data
+
+  dynamic "credit_specification" {
+    for_each = can(regex("^t", var.instance_type)) ? [1] : []
+    content {
+      cpu_credits = var.cpu_credits
+    }
   }
+
+  hibernation = var.enable_hibernation
 
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = var.require_imds_token ? "required" : "optional"
     http_put_response_hop_limit = 1
   }
-
-  enable_volume_tags = true
 
   tags = merge(
     var.tags,
@@ -198,16 +201,19 @@ resource "aws_volume_attachment" "additional" {
 
 # Elastic IP (optional)
 resource "aws_eip" "ec2" {
-  count    = var.allocate_elastic_ip ? 1 : 0
-  instance = aws_instance.ec2.id
-  domain   = "vpc"
+  count  = var.allocate_elastic_ip ? 1 : 0
+  domain = "vpc"
 
   tags = merge(
     var.tags,
     { Name = "${var.instance_name}-eip" }
   )
+}
 
-  depends_on = [aws_instance.ec2]
+resource "aws_eip_association" "ec2" {
+  count         = var.allocate_elastic_ip ? 1 : 0
+  instance_id   = aws_instance.ec2.id
+  allocation_id = aws_eip.ec2[0].id
 }
 
 # CloudWatch Alarms
@@ -363,13 +369,14 @@ resource "aws_autoscaling_group" "ec2" {
     }
   }
 
-  tags = concat(
-    [for key, value in merge(var.tags, { Name = var.instance_name }) : {
-      key                 = key
-      value               = value
+  dynamic "tag" {
+    for_each = merge(var.tags, { Name = var.instance_name })
+    content {
+      key                 = tag.key
+      value               = tag.value
       propagate_at_launch = true
-    }]
-  )
+    }
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -379,7 +386,7 @@ resource "aws_autoscaling_group" "ec2" {
 # Auto-scaling policies
 resource "aws_autoscaling_policy" "scale_up" {
   count                  = var.enable_auto_scaling && var.enable_scaling_policies ? 1 : 0
-  name_prefix            = "${var.instance_name}-scale-up-"
+  name                   = "${var.instance_name}-scale-up"
   scaling_adjustment     = 1
   adjustment_type        = "ChangeInCapacity"
   autoscaling_group_name = aws_autoscaling_group.ec2[0].name
@@ -388,7 +395,7 @@ resource "aws_autoscaling_policy" "scale_up" {
 
 resource "aws_autoscaling_policy" "scale_down" {
   count                  = var.enable_auto_scaling && var.enable_scaling_policies ? 1 : 0
-  name_prefix            = "${var.instance_name}-scale-down-"
+  name                   = "${var.instance_name}-scale-down"
   scaling_adjustment     = -1
   adjustment_type        = "ChangeInCapacity"
   autoscaling_group_name = aws_autoscaling_group.ec2[0].name
