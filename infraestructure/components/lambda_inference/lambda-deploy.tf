@@ -9,7 +9,7 @@ variable "environment" {
 module "my_lambda" {
   source = "../../modules/lambda"
 
-  function_name = "biti-hello-world"
+  function_name = "biti-btc-5mins-inference"
   source_dir    ="${path.module}/../../../src/lambda_inference"
   runtime       = "python3.11"
   handler       = "index.handler"
@@ -17,8 +17,9 @@ module "my_lambda" {
   memory_size   = 128
 
   environment_variables = {
-    LOG_LEVEL   = "INFO"
-    S3_BUCKET   = "biti-data-dev"
+    LOG_LEVEL     = "INFO"
+    S3_BUCKET     = "biti-data-dev"
+    ENDPOINT_NAME = "bitcoin-direction-classifier-v1"
   }
 
   custom_policies = {
@@ -32,6 +33,16 @@ module "my_lambda" {
             "arn:aws:s3:::biti-data-dev",
             "arn:aws:s3:::biti-data-dev/*"
           ]
+        }
+      ]
+    })
+    sagemaker_invoke = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect   = "Allow"
+          Action   = "sagemaker:InvokeEndpoint"
+          Resource = "arn:aws:sagemaker:*:*:endpoint/bitcoin-direction-classifier-v1"
         }
       ]
     })
