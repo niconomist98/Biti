@@ -17,7 +17,24 @@ module "my_lambda" {
   memory_size   = 128
 
   environment_variables = {
-    LOG_LEVEL = "INFO"
+    LOG_LEVEL   = "INFO"
+    S3_BUCKET   = "biti-data-dev"
+  }
+
+  custom_policies = {
+    s3_access = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect   = "Allow"
+          Action   = ["s3:PutObject", "s3:GetObject", "s3:ListBucket"]
+          Resource = [
+            "arn:aws:s3:::biti-data-dev",
+            "arn:aws:s3:::biti-data-dev/*"
+          ]
+        }
+      ]
+    })
   }
 
   create_error_alarm     = false
