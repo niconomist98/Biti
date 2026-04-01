@@ -17,16 +17,10 @@ resource "aws_dynamodb_table" "main" {
   billing_mode   = var.billing_mode
   hash_key       = var.hash_key
   range_key      = var.range_key
-  stream_view_type = var.stream_specification != null ? var.stream_specification.stream_view_type : null
 
-  # Provisioned throughput (if not PAY_PER_REQUEST)
-  dynamic "provisioned_throughput" {
-    for_each = var.billing_mode == "PROVISIONED" ? [1] : []
-    content {
-      read_capacity  = var.read_capacity
-      write_capacity = var.write_capacity
-    }
-  }
+
+  read_capacity  = var.billing_mode == "PROVISIONED" ? var.read_capacity : null
+  write_capacity = var.billing_mode == "PROVISIONED" ? var.write_capacity : null
 
   # Attributes
   dynamic "attribute" {
@@ -52,13 +46,8 @@ resource "aws_dynamodb_table" "main" {
       range_key       = lookup(global_secondary_index.value, "range_key", null)
       projection_type = global_secondary_index.value.projection_type
 
-      dynamic "provisioned_throughput" {
-        for_each = var.billing_mode == "PROVISIONED" ? [1] : []
-        content {
-          read_capacity  = global_secondary_index.value.read_capacity
-          write_capacity = global_secondary_index.value.write_capacity
-        }
-      }
+      read_capacity  = var.billing_mode == "PROVISIONED" ? global_secondary_index.value.read_capacity : null
+      write_capacity = var.billing_mode == "PROVISIONED" ? global_secondary_index.value.write_capacity : null
     }
   }
 
@@ -82,21 +71,18 @@ resource "aws_dynamodb_table" "main" {
   }
 
   # Point-in-time recovery
-  point_in_time_recovery_specification {
+  point_in_time_recovery {
     enabled = var.enable_point_in_time_recovery
   }
 
   # Server-side encryption
-  server_side_encryption_specification {
+  server_side_encryption {
     enabled     = var.enable_encryption
     kms_key_arn = var.encryption_key_arn
   }
 
-  # Enable streams
-  stream_specification {
-    stream_enabled   = var.enable_streams
-    stream_view_type = var.stream_view_type
-  }
+  stream_enabled   = var.enable_streams
+  stream_view_type = var.enable_streams ? var.stream_view_type : null
 
   # Tags
   tags = merge(
@@ -289,13 +275,13 @@ resource "aws_backup_plan" "dynamodb" {
   )
 }
 
-resource "aws_backup_resource_assignment" "dynamodb" {
+resource "aws_backup_selection" "dynamodb" {
   count = var.enable_backup_vault ? 1 : 0
 
-  name             = "${var.table_name}-backup-assignment"
-  iam_role_arn     = aws_iam_role.backup[0].arn
-  plan_id          = aws_backup_plan.dynamodb[0].id
-  resources        = [aws_dynamodb_table.main.arn]
+  name         = "${var.table_name}-backup-selection"
+  iam_role_arn = aws_iam_role.backup[0].arn
+  plan_id      = aws_backup_plan.dynamodb[0].id
+  resources    = [aws_dynamodb_table.main.arn]
 }
 
 # IAM Role for Backup
@@ -329,11 +315,7 @@ resource "aws_iam_role_policy_attachment" "backup" {
 resource "aws_dynamodb_global_table" "main" {
   count = var.enable_global_table ? 1 : 0
 
-  name            = var.table_name
-  billing_mode    = var.billing_mode
-  hash_key        = var.hash_key
-  range_key       = var.range_key
-  stream_view_type = var.stream_view_type
+  name = var.table_name
 
   dynamic "replica" {
     for_each = var.replica_regions

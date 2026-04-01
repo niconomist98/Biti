@@ -52,18 +52,15 @@ output "range_key" {
 
 output "global_secondary_indexes" {
   description = "Information about global secondary indexes"
-  value       = aws_dynamodb_table.main.global_secondary_indexes
+  value       = aws_dynamodb_table.main.global_secondary_index
 }
 
 output "local_secondary_indexes" {
   description = "Information about local secondary indexes"
-  value       = aws_dynamodb_table.main.local_secondary_indexes
+  value       = aws_dynamodb_table.main.local_secondary_index
 }
 
-output "item_count" {
-  description = "Number of items in the table"
-  value       = aws_dynamodb_table.main.item_count
-}
+
 
 output "cloudwatch_log_group_name" {
   description = "CloudWatch log group name for DynamoDB Streams"
@@ -92,12 +89,12 @@ output "autoscaling_enabled" {
 
 output "encryption_enabled" {
   description = "Whether server-side encryption is enabled"
-  value       = aws_dynamodb_table.main.server_side_encryption_description[0].enabled
+  value       = length(aws_dynamodb_table.main.server_side_encryption) > 0 ? aws_dynamodb_table.main.server_side_encryption[0].enabled : false
 }
 
 output "point_in_time_recovery_enabled" {
   description = "Whether point-in-time recovery is enabled"
-  value       = aws_dynamodb_table.main.point_in_time_recovery_description[0].point_in_time_recovery_enabled
+  value       = length(aws_dynamodb_table.main.point_in_time_recovery) > 0 ? aws_dynamodb_table.main.point_in_time_recovery[0].enabled : false
 }
 
 output "ttl_attribute_name" {
@@ -105,7 +102,4 @@ output "ttl_attribute_name" {
   value       = var.ttl_attribute_name
 }
 
-output "table_size_bytes" {
-  description = "Size of the table in bytes"
-  value       = aws_dynamodb_table.main.size_bytes
-}
+

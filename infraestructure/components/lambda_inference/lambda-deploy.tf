@@ -17,9 +17,10 @@ module "my_lambda" {
   memory_size   = 128
 
   environment_variables = {
-    LOG_LEVEL     = "INFO"
-    S3_BUCKET     = "biti-data-dev"
-    ENDPOINT_NAME = "bitcoin-direction-classifier-v1"
+    LOG_LEVEL      = "INFO"
+    S3_BUCKET      = "biti-data-dev"
+    ENDPOINT_NAME  = "bitcoin-direction-classifier-v1"
+    DYNAMODB_TABLE = "biti-predictions-${var.environment}"
   }
 
   custom_policies = {
@@ -43,6 +44,20 @@ module "my_lambda" {
           Effect   = "Allow"
           Action   = "sagemaker:InvokeEndpoint"
           Resource = "arn:aws:sagemaker:*:*:endpoint/bitcoin-direction-classifier-v1"
+        }
+      ]
+    })
+    dynamodb_access = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "dynamodb:PutItem",
+            "dynamodb:GetItem",
+            "dynamodb:Query"
+          ]
+          Resource = "arn:aws:dynamodb:*:*:table/biti-predictions-${var.environment}"
         }
       ]
     })

@@ -7,12 +7,15 @@ from urllib.parse import urlencode
 from datetime import datetime
 
 ENDPOINT_NAME = os.environ.get("ENDPOINT_NAME", "bitcoin-direction-classifier-v1")
+DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "biti-predictions-dev")
 BINANCE_URL = "https://api.binance.us/api/v3/klines"
 SYMBOL = "BTCUSDT"
 INTERVAL = "5m"
 LIMIT = 100
 
-runtime = boto3.client("sagemaker-runtime")
+sagemaker_runtime = boto3.client("sagemaker-runtime")
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table(DYNAMODB_TABLE)
 
 
 def feature_engineering(candles):
@@ -69,7 +72,7 @@ def handler(event, context):
 
         # 3. Invoke SageMaker endpoint
         payload = ",".join(str(v) for v in features)
-        sm_response = runtime.invoke_endpoint(
+        sm_response = sagemaker_runtime.invoke_endpoint(
             EndpointName=ENDPOINT_NAME,
             ContentType="text/csv",
             Body=payload,
@@ -78,15 +81,24 @@ def handler(event, context):
         # 4. Parse prediction
         prediction_prob = float(sm_response["Body"].read().decode())
         direction = "UP" if prediction_prob > 0.5 else "DOWN"
+        ts = datetime.utcnow().isoformat()
 
         result = {
             "symbol": SYMBOL,
-            "timestamp": str(datetime.utcnow()),
+            "timestamp": ts,
             "probability_up": round(prediction_prob, 4),
-            "prediction_5_mins": direction,
+            "prediction": direction,
         }
-        print(f"Inference Result: {result}")
 
+        # 5. Store in DynamoDB
+        table.put_item(Item={
+            "symbol": SYMBOL,
+            "timestamp": ts,
+            "probability_up": str(round(prediction_prob, 4)),
+            "prediction": direction,
+        })
+
+        print(f"Inference Result: {result}")
         return {"statusCode": 200, "body": json.dumps(result)}
 
     except Exception as e:
