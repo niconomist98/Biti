@@ -27,7 +27,8 @@ resource "aws_s3_bucket_versioning" "bucket" {
 
   versioning_configuration {
     status     = "Enabled"
-    mfa_delete = var.enable_mfa_delete
+        mfa_delete = var.enable_mfa_delete ? "Enabled" : "Disabled"
+
   }
 }
 
