@@ -19,7 +19,7 @@ module "my_lambda" {
   environment_variables = {
     LOG_LEVEL      = "INFO"
     S3_BUCKET      = "biti-data-dev"
-    ENDPOINT_NAME  = "bitcoin-direction-classifier-v1"
+    ENDPOINT_NAME  = "biti-dev-bitcoin-classifier"
     DYNAMODB_TABLE = "biti-predictions-${var.environment}"
   }
 
@@ -43,7 +43,7 @@ module "my_lambda" {
         {
           Effect   = "Allow"
           Action   = "sagemaker:InvokeEndpoint"
-          Resource = "arn:aws:sagemaker:*:*:endpoint/bitcoin-direction-classifier-v1"
+          Resource = "arn:aws:sagemaker:*:*:endpoint/biti-dev-bitcoin-classifier"
         }
       ]
     })
