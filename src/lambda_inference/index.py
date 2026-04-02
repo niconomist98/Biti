@@ -5,6 +5,7 @@ import boto3
 from urllib.request import urlopen
 from urllib.parse import urlencode
 from datetime import datetime
+from boto3.dynamodb.conditions import Key
 
 ENDPOINT_NAME = os.environ.get("ENDPOINT_NAME", "bitcoin-direction-classifier-v1")
 DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "biti-predictions-dev")
@@ -27,15 +28,14 @@ def feature_engineering(candles):
     volumes = [float(c[5]) for c in candles]
     timestamps = [int(c[0]) for c in candles]
 
-    i = len(candles) - 1
+    # Use second-to-last candle (last fully closed candle)
+    i = len(candles) - 2
 
-    # Wicks
     oc_max = max(opens[i], closes[i])
     oc_min = min(opens[i], closes[i])
     upper_wick = (highs[i] - oc_max) / closes[i]
     lower_wick = (oc_min - lows[i]) / closes[i]
 
-    # RSI (14-period)
     gains, losses = [], []
     for j in range(len(closes) - 14, len(closes)):
         delta = closes[j] - closes[j - 1]
@@ -45,19 +45,45 @@ def feature_engineering(candles):
     avg_loss = sum(losses) / 14
     rsi = 100 if avg_loss == 0 else 100 - (100 / (1 + avg_gain / avg_loss))
 
-    # Volume change (log1p diff)
     volume_change = math.log1p(volumes[i]) - math.log1p(volumes[i - 1])
 
-    # Cyclical time features
     dt = datetime.utcfromtimestamp(timestamps[i] / 1000)
-    hour = dt.hour
-    dow = dt.weekday()
-    hour_sin = math.sin(2 * math.pi * hour / 24)
-    hour_cos = math.cos(2 * math.pi * hour / 24)
-    day_sin = math.sin(2 * math.pi * dow / 7)
-    day_cos = math.cos(2 * math.pi * dow / 7)
+    hour_sin = math.sin(2 * math.pi * dt.hour / 24)
+    hour_cos = math.cos(2 * math.pi * dt.hour / 24)
+    day_sin = math.sin(2 * math.pi * dt.weekday() / 7)
+    day_cos = math.cos(2 * math.pi * dt.weekday() / 7)
 
-    return [upper_wick, lower_wick, rsi, volume_change, hour_sin, hour_cos, day_sin, day_cos]
+    features = [upper_wick, lower_wick, rsi, volume_change, hour_sin, hour_cos, day_sin, day_cos]
+    close = closes[i]
+    candle_open_time = datetime.utcfromtimestamp(timestamps[i] / 1000).isoformat()
+
+    return features, close, candle_open_time
+
+
+def validate_previous_prediction(current_close):
+    """Validate the last prediction against the current close price."""
+    resp = table.query(
+        KeyConditionExpression=Key("symbol").eq(SYMBOL),
+        ScanIndexForward=False,
+        Limit=1,
+    )
+    items = resp.get("Items", [])
+    if not items:
+        return
+
+    prev = items[0]
+    prev_close = float(prev["close"])
+    actual_direction = "UP" if current_close > prev_close else "DOWN"
+
+    table.update_item(
+        Key={"symbol": prev["symbol"], "timestamp": prev["timestamp"]},
+        UpdateExpression="SET actual_direction = :ad, prediction_correct = :pc, price_change = :ch",
+        ExpressionAttributeValues={
+            ":ad": actual_direction,
+            ":pc": prev["prediction"] == actual_direction,
+            ":ch": str(round(current_close - prev_close, 2)),
+        },
+    )
 
 
 def handler(event, context):
@@ -68,9 +94,12 @@ def handler(event, context):
             candles = json.loads(resp.read())
 
         # 2. Feature engineering
-        features = feature_engineering(candles)
+        features, close, candle_open_time = feature_engineering(candles)
 
-        # 3. Invoke SageMaker endpoint
+        # 3. Validate previous prediction
+        validate_previous_prediction(close)
+
+        # 4. Invoke SageMaker endpoint
         payload = ",".join(str(v) for v in features)
         sm_response = sagemaker_runtime.invoke_endpoint(
             EndpointName=ENDPOINT_NAME,
@@ -78,28 +107,23 @@ def handler(event, context):
             Body=payload,
         )
 
-        # 4. Parse prediction
+        # 5. Parse prediction
         prediction_prob = float(sm_response["Body"].read().decode())
         direction = "UP" if prediction_prob > 0.5 else "DOWN"
         ts = datetime.utcnow().isoformat()
 
-        result = {
+        # 6. Store in DynamoDB
+        item = {
             "symbol": SYMBOL,
             "timestamp": ts,
-            "probability_up": round(prediction_prob, 4),
+            "candle_open_time": candle_open_time,
+            "close": str(close),
             "prediction": direction,
-        }
-
-        # 5. Store in DynamoDB
-        table.put_item(Item={
-            "symbol": SYMBOL,
-            "timestamp": ts,
             "probability_up": str(round(prediction_prob, 4)),
-            "prediction": direction,
-        })
+        }
+        table.put_item(Item=item)
 
-        print(f"Inference Result: {result}")
-        return {"statusCode": 200, "body": json.dumps(result)}
+        return {"statusCode": 200, "body": json.dumps(item)}
 
     except Exception as e:
         print(f"Error: {str(e)}")
