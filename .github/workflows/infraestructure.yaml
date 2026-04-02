@@ -1,0 +1,91 @@
+name: Biti Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths: ['infraestructure/**', 'src/**']
+  pull_request:
+    branches: [main]
+    paths: ['infraestructure/**', 'src/**']
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options: [plan, apply, destroy]
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: '1.7.0'
+  AWS_REGION: 'us-east-1'
+
+jobs:
+  terraform:
+    name: "${{ github.event.inputs.action || 'plan' }} (${{ github.event.inputs.environment || 'dev' }})"
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    defaults:
+      run:
+        working-directory: infraestructure/live/${{ github.event.inputs.environment || 'dev' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        if: github.event.inputs.action != 'destroy'
+        run: terraform plan -var-file=terraform.tfvars -out=tfplan -no-color
+        continue-on-error: true
+
+      - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const plan = `${{ steps.plan.outputs.stdout }}`.substring(0, 60000);
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `#### Terraform Plan 📖\n\`\`\`\n${plan}\n\`\`\`\n*Triggered by @${{ github.actor }}*`
+            })
+
+      - name: Terraform Apply
+        if: |
+          github.event.inputs.action == 'apply' ||
+          (github.ref == 'refs/heads/main' && github.event_name == 'push')
+        run: terraform apply -var-file=terraform.tfvars -auto-approve
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform destroy -var-file=terraform.tfvars -auto-approve
+
+      - name: Terraform Output
+        if: github.event.inputs.action != 'destroy'
+        run: terraform output -no-color
