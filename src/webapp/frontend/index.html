@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Biti — Crypto Predictions</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; padding: 2rem; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .subtitle { color: #8b949e; margin-bottom: 1.5rem; }
+    .controls { display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center; flex-wrap: wrap; }
+    input, select, button { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #30363d; background: #161b22; color: #e6edf3; font-size: 0.9rem; }
+    button { background: #238636; border-color: #238636; cursor: pointer; font-weight: 600; }
+    button:hover { background: #2ea043; }
+    .status { color: #8b949e; font-size: 0.85rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: 0.6rem 1rem; text-align: left; border-bottom: 1px solid #21262d; }
+    th { background: #161b22; color: #8b949e; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; position: sticky; top: 0; }
+    tr:hover { background: #161b22; }
+    .error { color: #f85149; margin: 1rem 0; }
+    .loading { color: #8b949e; padding: 2rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>🔮 Biti Predictions</h1>
+  <p class="subtitle">AI/ML Crypto Forecasting</p>
+
+  <div class="controls">
+    <input type="text" id="symbol" placeholder="Symbol (e.g. BTCUSDT)" />
+    <select id="limit">
+      <option value="25">25 rows</option>
+      <option value="50" selected>50 rows</option>
+      <option value="100">100 rows</option>
+      <option value="200">200 rows</option>
+    </select>
+    <button onclick="fetchData()">Fetch</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div id="content"><p class="loading">Click Fetch to load predictions...</p></div>
+
+  <script>
+    // REPLACE THIS with your API Gateway URL after deployment
+    const API_URL = window.__BITI_API_URL__ || "/api";
+
+    async function fetchData() {
+      const symbol = document.getElementById("symbol").value.trim();
+      const limit = document.getElementById("limit").value;
+      const status = document.getElementById("status");
+      const content = document.getElementById("content");
+
+      content.innerHTML = '<p class="loading">Loading...</p>';
+      status.textContent = "";
+
+      const params = new URLSearchParams({ limit });
+      if (symbol) params.set("symbol", symbol);
+
+      try {
+        const resp = await fetch(`${API_URL}/predictions?${params}`);
+        const data = await resp.json();
+
+        if (data.error) {
+          content.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+          return;
+        }
+
+        status.textContent = `${data.count} results`;
+
+        if (!data.items.length) {
+          content.innerHTML = '<p class="loading">No data found.</p>';
+          return;
+        }
+
+        const keys = [...new Set(data.items.flatMap(Object.keys))];
+        const headerRow = keys.map(k => `<th>${k}</th>`).join("");
+        const rows = data.items.map(item =>
+          `<tr>${keys.map(k => `<td>${item[k] ?? ""}</td>`).join("")}</tr>`
+        ).join("");
+
+        content.innerHTML = `<table><thead><tr>${headerRow}</tr></thead><tbody>${rows}</tbody></table>`;
+      } catch (e) {
+        content.innerHTML = `<p class="error">Failed to fetch: ${e.message}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
