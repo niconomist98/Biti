@@ -32,7 +32,7 @@ output "endpoint_config_name" {
 
 output "endpoint_status" {
   description = "Status of the SageMaker endpoint"
-  value       = aws_sagemaker_endpoint.endpoint.endpoint_status
+  value       = aws_sagemaker_endpoint.endpoint.arn
 }
 
 output "model_package_group_arn" {

@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 from datetime import datetime
 from boto3.dynamodb.conditions import Key
 
-ENDPOINT_NAME = os.environ.get("ENDPOINT_NAME", "bitcoin-direction-classifier-v1")
+ENDPOINT_NAME = os.environ.get("ENDPOINT_NAME", "bitcoin-direction-classifier")
 DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "biti-predictions-dev")
 BINANCE_URL = "https://api.binance.us/api/v3/klines"
 SYMBOL = "BTCUSDT"

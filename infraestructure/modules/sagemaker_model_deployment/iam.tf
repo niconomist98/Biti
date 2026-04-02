@@ -34,57 +34,48 @@ resource "aws_iam_role_policy" "sagemaker_s3_access" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "ReadModelArtifacts"
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion"
-        ]
-        Resource = [
-          "${var.model_artifact_s3_uri}*",
-          "arn:aws:s3:::${split("/", var.model_artifact_s3_uri)[2]}/*"
-        ]
-      },
-      {
-        Sid    = "ListModelBucket"
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket",
-          "s3:GetBucketVersioning"
-        ]
-        Resource = "arn:aws:s3:::${split("/", var.model_artifact_s3_uri)[2]}"
-      },
-      # Data capture access (if enabled)
-      {
-        Sid    = "WriteDataCapture"
-        Effect = "Allow"
-        Action = [
-          "s3:PutObject",
-          "s3:DeleteObject"
-        ]
-        Resource = var.enable_data_capture ? [
-          "arn:aws:s3:::${split("/", var.data_capture_s3_prefix)[2]}/*"
-        ] : []
-        Condition = var.enable_data_capture ? {
-          StringEquals = {
-            "s3:x-amz-server-side-encryption" = "AES256"
-          }
-        } : {}
-      },
-      {
-        Sid    = "ListDataCaptureBucket"
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket",
-          "s3:GetBucketVersioning"
-        ]
-        Resource = var.enable_data_capture ? [
-          "arn:aws:s3:::${split("/", var.data_capture_s3_prefix)[2]}"
-        ] : []
-      }
-    ]
+    Statement = concat(
+      [
+        {
+          Sid    = "ReadModelArtifacts"
+          Effect = "Allow"
+          Action = [
+            "s3:GetObject",
+            "s3:GetObjectVersion"
+          ]
+          Resource = "arn:aws:s3:::${replace(var.model_artifact_s3_uri, "s3://", "")}*"
+        },
+        {
+          Sid    = "ListModelBucket"
+          Effect = "Allow"
+          Action = [
+            "s3:ListBucket",
+            "s3:GetBucketVersioning"
+          ]
+          Resource = "arn:aws:s3:::${split("/", replace(var.model_artifact_s3_uri, "s3://", ""))[0]}"
+        }
+      ],
+      var.enable_data_capture ? [
+        {
+          Sid    = "WriteDataCapture"
+          Effect = "Allow"
+          Action = [
+            "s3:PutObject",
+            "s3:DeleteObject"
+          ]
+          Resource = "arn:aws:s3:::${split("/", var.data_capture_s3_prefix)[2]}/*"
+        },
+        {
+          Sid    = "ListDataCaptureBucket"
+          Effect = "Allow"
+          Action = [
+            "s3:ListBucket",
+            "s3:GetBucketVersioning"
+          ]
+          Resource = "arn:aws:s3:::${split("/", var.data_capture_s3_prefix)[2]}"
+        }
+      ] : []
+    )
   })
 }
 
@@ -219,8 +210,4 @@ resource "aws_iam_role_policy_attachment" "sagemaker_execution_role" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
 }
 
-# Output the role ARN for use in model creation
-output "sagemaker_role_arn" {
-  description = "ARN of the SageMaker IAM role"
-  value       = aws_iam_role.sagemaker_role.arn
-}
+

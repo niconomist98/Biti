@@ -15,19 +15,17 @@ resource "aws_sagemaker_model" "model" {
   execution_role_arn = aws_iam_role.sagemaker_role.arn
 
   primary_container {
-    image              = var.model_container_image_uri
-    model_data_url     = var.custom_model_data_url != null ? var.custom_model_data_url : var.model_artifact_s3_uri
-    model_data_version = "1"
-
-    environment = var.model_environment_variables
-
-    content_type = "application/octet-stream"
-    accept_types = ["application/json", "text/csv", "application/x-recordio-protobuf"]
+    image          = var.model_container_image_uri
+    model_data_url = var.custom_model_data_url != null ? var.custom_model_data_url : var.model_artifact_s3_uri
+    environment    = var.model_environment_variables
   }
 
-  vpc_config {
-    subnets            = var.vpc_config != null ? var.vpc_config.subnet_ids : []
-    security_group_ids = var.vpc_config != null ? var.vpc_config.security_group_ids : []
+  dynamic "vpc_config" {
+    for_each = var.vpc_config != null ? [var.vpc_config] : []
+    content {
+      subnets            = vpc_config.value.subnet_ids
+      security_group_ids = vpc_config.value.security_group_ids
+    }
   }
 
   tags = merge(
@@ -70,42 +68,23 @@ resource "aws_sagemaker_endpoint_configuration" "config" {
     initial_instance_count = var.initial_instance_count
     instance_type          = var.instance_type
     initial_variant_weight = 1.0
-
-    core_dump_config {
-      destination_s3_uri = "s3://${split("/", var.model_artifact_s3_uri)[2]}/core-dumps/"
-      kms_key_id         = null
-    }
-
-    container_startup_health_check_timeout_in_seconds = 600
   }
 
-  # Data capture configuration
   dynamic "data_capture_config" {
     for_each = var.enable_data_capture ? [1] : []
     content {
-      enabled                = true
+      enable_capture              = true
       initial_sampling_percentage = 100
-      destination_s3_uri     = var.data_capture_s3_prefix
-      capture_options = [
-        {
-          capture_mode = "InputAndOutput"
-        }
-      ]
+      destination_s3_uri          = var.data_capture_s3_prefix
+
+      capture_options {
+        capture_mode = "Input"
+      }
+      capture_options {
+        capture_mode = "Output"
+      }
     }
   }
-
-  # Enable X-Ray tracing
-  dynamic "shadow_production_variants" {
-    for_each = var.enable_xray_tracing ? [1] : []
-    content {
-      variant_name           = "debug"
-      model_name             = aws_sagemaker_model.model.name
-      initial_instance_count = 0
-      instance_type          = var.instance_type
-    }
-  }
-
-  kms_key_arn = null
 
   tags = merge(
     var.tags,

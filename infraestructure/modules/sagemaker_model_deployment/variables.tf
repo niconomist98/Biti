@@ -45,7 +45,7 @@ variable "model_artifact_s3_uri" {
 variable "model_container_image_uri" {
   description = "Container image URI for the model framework (ECR URI or SageMaker built-in algorithm URI)"
   type        = string
-  example     = "382416733822.dkr.ecr.us-east-1.amazonaws.com/pca:latest"
+  # Example: "382416733822.dkr.ecr.us-east-1.amazonaws.com/pca:latest"
 }
 
 variable "endpoint_name" {
